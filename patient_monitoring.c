@@ -1,128 +1,153 @@
-/*
- * Smart Patient Monitoring and Record Management System
- * Developed in C for console-based patient data management.
- *
- * Features:
- *   1. Add Patient
- *   2. View Patients
- *   3. Search Patient
- *   4. Update Record
- *   5. Delete Record
- *   6. Analyze Vital Signs
- *   7. Save Data
- *   8. Exit
- */
-
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h> // Required for system functions
 
-/* --- Configuration and Struct --- */
-#define MAX_P 100
-#define DATA_FILE "patients.dat"
+#define MAX 100
 
-typedef struct {
-    int id, age, hr, sbp, dbp;
-    char name[50], gender[10], diag[100];
-    float temp;
-} Patient;
+/* --- GLOBAL DATA --- */
+int ids[MAX];
+char names[MAX][50];
+char diagnoses[MAX][100];
+float temps[MAX];
+int pulse[MAX];
+int urgencyScore[MAX]; 
+char priority[MAX][15]; 
 
-/* --- Global State --- */
-Patient pts[MAX_P];
-int count = 0, nxt_id = 1;
-
-/* Helper to clear input buffer and prevent scanf skipping */
-void clear() { while (getchar() != '\n'); }
-
-/* Save data to binary file */
-void save() {
-    FILE *fp = fopen(DATA_FILE, "wb");
-    if (fp) {
-        fwrite(&count, sizeof(int), 1, fp);
-        fwrite(&nxt_id, sizeof(int), 1, fp);
-        fwrite(pts, sizeof(Patient), count, fp);
-        fclose(fp);
-        printf("Data saved successfully.\n");
-    }
-}
-
-/* Load data from binary file on startup */
-void load() {
-    FILE *fp = fopen(DATA_FILE, "rb");
-    if (fp && fread(&count, sizeof(int), 1, fp) && fread(&nxt_id, sizeof(int), 1, fp)) {
-        fread(pts, sizeof(Patient), count, fp);
-        fclose(fp);
-    }
-}
-
-/* Concise display of patient record */
-void print_p(Patient *p) {
-    printf("\n[ID: %d] Name: %-15s Age: %d | %s\n", p->id, p->name, p->age, p->gender);
-    printf("  Diag: %s\n", p->diag);
-    printf("  Vitals: %.1fC, %d bpm, BP: %d/%d mmHg\n", p->temp, p->hr, p->sbp, p->dbp);
-}
-
-/* Add new patient with auto-incremented ID */
-void add() {
-    if (count >= MAX_P) { printf("System full!\n"); return; }
-    Patient *p = &pts[count++];
-    p->id = nxt_id++;
-
-    printf("Name: "); fgets(p->name, 50, stdin); p->name[strcspn(p->name, "\n")] = 0;
-    printf("Age: "); scanf("%d", &p->age); clear();
-    printf("Gender: "); scanf("%s", p->gender); clear();
-    printf("Diagnosis: "); fgets(p->diag, 100, stdin); p->diag[strcspn(p->diag, "\n")] = 0;
-    
-    // Quick entry for medical data
-    printf("Enter Vitals (Temp HR SBP DBP): ");
-    scanf("%f %d %d %d", &p->temp, &p->hr, &p->sbp, &p->dbp); clear();
-}
-
-/* Analyze signs against standard medical thresholds */
-void analyze() {
-    for (int i = 0; i < count; i++) {
-        printf("\nAnalysis for %s:", pts[i].name);
-        int abnormal = 0;
-        if (pts[i].temp < 36.1 || pts[i].temp > 37.2) { printf(" [!] Temp"); abnormal = 1; }
-        if (pts[i].hr < 60 || pts[i].hr > 100) { printf(" [!] Heart Rate"); abnormal = 1; }
-        if (pts[i].sbp > 120 || pts[i].dbp > 80) { printf(" [!] BP High"); abnormal = 1; }
-        
-        if (!abnormal) printf(" All vitals normal.");
-        printf("\n");
-    }
-}
+/* --- FUNCTION PROTOTYPES --- */
+void addPatient(int *total);
+void searchByName(int total);
+void sortByUrgency(int total);
+void saveToFile(int total);
+void loadFromFile(int *total);
 
 int main() {
-    int ch, id;
-    load();
-    
-    while (1) {
-        printf("\n1.Add 2.View 3.Search 4.Analyze 5.Delete 6.Exit\nChoice: ");
-        if (scanf("%d", &ch) != 1) { clear(); continue; }
-        clear();
+    int totalPatients = 0;
+    int choice;
 
-        if (ch == 6) { save(); break; }
+    loadFromFile(&totalPatients);
+
+    while (1) {
+        printf("\n======= MEDI-CORE MANAGEMENT SYSTEM =======\n");
+        printf("1. Register & Triage Patient\n");
+        printf("2. Search Patient by Name\n");
+        printf("3. Sort & View by Urgency (Critical First)\n");
+        printf("4. View All Records\n");
+        printf("5. Save and Exit\n");
+        printf("============================================\n");
+        printf("Selection: ");
         
-        switch(ch) {
-            case 1: add(); break;
-            case 2: 
-                for(int i=0; i<count; i++) print_p(&pts[i]); 
+        if (scanf("%d", &choice) != 1) {
+            while(getchar() != '\n'); // Clear buffer if user enters a letter
+            continue;
+        }
+        getchar(); // Clean the newline
+
+        switch(choice) {
+            case 1: addPatient(&totalPatients); break;
+            case 2: searchByName(totalPatients); break;
+            case 3: sortByUrgency(totalPatients); break;
+            case 4: 
+                if(totalPatients == 0) printf("\nNo records found.\n");
+                for(int i = 0; i < totalPatients; i++) 
+                    printf("[%s] ID:%d | %-15s | %s\n", priority[i], ids[i], names[i], diagnoses[i]);
                 break;
-            case 3: 
-                printf("Enter ID: "); scanf("%d", &id); clear();
-                for(int i=0; i<count; i++) if(pts[i].id == id) print_p(&pts[i]);
-                break;
-            case 4: analyze(); break;
-            case 5: 
-                printf("ID to delete: "); scanf("%d", &id); clear();
-                for(int i=0; i<count; i++) if(pts[i].id == id) {
-                    // Replace deleted item with the last item (Efficient swap-delete)
-                    pts[i] = pts[--count]; 
-                    printf("Record deleted.\n");
-                }
-                break;
-            default: printf("Invalid choice.\n");
+            case 5: saveToFile(totalPatients); return 0;
+            default: printf("Invalid option.\n");
         }
     }
-    return 0;
+}
+
+void addPatient(int *total) {
+    if (*total >= MAX) {
+        printf("Database full!\n");
+        return;
+    }
+    static int idGen = 202601; 
+    
+    printf("Full Name: ");
+    fgets(names[*total], 50, stdin);
+    names[*total][strcspn(names[*total], "\n")] = 0;
+
+    printf("Temp (C) & Pulse (BPM): ");
+    scanf("%f %d", &temps[*total], &pulse[*total]);
+    getchar();
+
+    printf("Diagnosis: ");
+    fgets(diagnoses[*total], 100, stdin);
+    diagnoses[*total][strcspn(diagnoses[*total], "\n")] = 0;
+
+    /* MEDICAL TRIAGE LOGIC */
+    if (temps[*total] > 39.5 || pulse[*total] > 130) {
+        strcpy(priority[*total], "CRITICAL");
+        urgencyScore[*total] = 3;
+    } else if (temps[*total] > 37.8) {
+        strcpy(priority[*total], "URGENT");
+        urgencyScore[*total] = 2;
+    } else {
+        strcpy(priority[*total], "NORMAL");
+        urgencyScore[*total] = 1;
+    }
+
+    ids[*total] = idGen++;
+    (*total)++;
+    printf("Patient added successfully!\n");
+}
+
+void searchByName(int total) {
+    char query[50];
+    int found = 0;
+    printf("Enter name to search: ");
+    fgets(query, 50, stdin);
+    query[strcspn(query, "\n")] = 0;
+
+    for(int i = 0; i < total; i++) {
+        if(strstr(names[i], query)) {
+            printf("Found: ID %d | %s | Status: %s | Diag: %s\n", ids[i], names[i], priority[i], diagnoses[i]);
+            found = 1;
+        }
+    }
+    if(!found) printf("No patient found.\n");
+}
+
+void sortByUrgency(int total) {
+    for (int i = 0; i < total - 1; i++) {
+        for (int j = 0; j < total - i - 1; j++) {
+            if (urgencyScore[j] < urgencyScore[j + 1]) {
+                // Swap IDs
+                int tID = ids[j]; ids[j] = ids[j+1]; ids[j+1] = tID;
+                // Swap Temps
+                float tT = temps[j]; temps[j] = temps[j+1]; temps[j+1] = tT;
+                // Swap Pulse
+                int tP = pulse[j]; pulse[j] = pulse[j+1]; pulse[j+1] = tP;
+                // Swap Scores
+                int tS = urgencyScore[j]; urgencyScore[j] = urgencyScore[j+1]; urgencyScore[j+1] = tS;
+                // Swap Names
+                char tN[50]; strcpy(tN, names[j]); strcpy(names[j], names[j+1]); strcpy(names[j+1], tN);
+                // Swap Diagnosis
+                char tD[100]; strcpy(tD, diagnoses[j]); strcpy(diagnoses[j], diagnoses[j+1]); strcpy(diagnoses[j+1], tD);
+                // Swap Priority
+                char tPr[15]; strcpy(tPr, priority[j]); strcpy(priority[j], priority[j+1]); strcpy(priority[j+1], tPr);
+            }
+        }
+    }
+    printf("Sorting complete.\n");
+}
+
+void saveToFile(int total) {
+    FILE *fp = fopen("hospital.txt", "w");
+    if(fp == NULL) return;
+    for(int i = 0; i < total; i++) {
+        fprintf(fp, "%d|%f|%d|%d|%s|%s|%s\n", ids[i], temps[i], pulse[i], urgencyScore[i], names[i], diagnoses[i], priority[i]);
+    }
+    fclose(fp);
+    printf("Data saved successfully.\n");
+}
+
+void loadFromFile(int *total) {
+    FILE *fp = fopen("hospital.txt", "r");
+    if(fp == NULL) return;
+    while(fscanf(fp, "%d|%f|%d|%d|%[^|]|%[^|]|%[^\n]\n", &ids[*total], &temps[*total], &pulse[*total], &urgencyScore[*total], names[*total], diagnoses[*total], priority[*total]) == 7) {
+        (*total)++;
+    }
+    fclose(fp);
 }
