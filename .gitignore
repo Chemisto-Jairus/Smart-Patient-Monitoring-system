@@ -1,0 +1,10 @@
+# Build output
+patient_monitoring
+
+# Runtime data file
+patients.dat
+
+# Editor/OS artifacts
+*.o
+*.d
+.DS_Store
