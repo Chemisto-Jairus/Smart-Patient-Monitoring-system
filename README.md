@@ -17,6 +17,7 @@ monitor patient information and manage medical records efficiently.
 | 6. Analyze Vital Signs | Flag abnormal temperature, heart rate, and blood pressure |
 | 7. Save Data | Persist all records to `patients.dat` (binary file) |
 | 8. Exit | Save and quit |
+hello
 
 Data is automatically loaded from `patients.dat` on startup and saved on exit.
 
